@@ -4,8 +4,16 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+isort = "*"
+black = "*"
+flake8 = "*"
 
 [packages]
+googleads = "*"
+pyyaml = "*"
 
 [requires]
 python_version = "3.7"
+
+[pipenv]
+allow_prereleases = true

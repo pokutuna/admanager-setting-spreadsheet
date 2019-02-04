@@ -1,0 +1,19 @@
+{
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.py": [
+      "pipenv run black",
+      "pipenv run isort",
+      "pipenv run flake8",
+      "git add"
+    ]
+  },
+  "devDependencies": {
+    "husky": "^1.3.1",
+    "lint-staged": "^8.1.0"
+  }
+}
