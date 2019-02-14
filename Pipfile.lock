@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6d51f75b40f6d594f659ae3390c4806110023fb596bfe9a1fd077bd431d68fa7"
+            "sha256": "734400c455e459ea3a690e93260d02b0cda77243d3db148f5e9ec45526908325"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -98,16 +98,16 @@
         },
         "googleads": {
             "hashes": [
-                "sha256:7c685fe8e104a54c2202426c5f708b18f03c79d8fae11e463c5ccfe7cdfc3b5c"
+                "sha256:2eebf86ff15b3832e26ef9a51079c16a0235d69f9ed9aba0bae24748057b84ed"
             ],
             "index": "pypi",
-            "version": "==16.0.0"
+            "version": "==17.0.0"
         },
         "httplib2": {
             "hashes": [
-                "sha256:f61fb838a94ce3b349aa32c92fd8430f7e3511afdb18bf9640d647e30c90a6d6"
+                "sha256:4ba6b8fd77d0038769bf3c33c9a96a6f752bc4cdf739701fdcaf210121f399d4"
             ],
-            "version": "==0.12.0"
+            "version": "==0.12.1"
         },
         "idna": {
             "hashes": [
@@ -162,12 +162,27 @@
             ],
             "version": "==4.3.1"
         },
+        "more-itertools": {
+            "hashes": [
+                "sha256:0125e8f60e9e031347105eb1682cef932f5e97d7b9a1a28d9bf00c22a5daef40",
+                "sha256:590044e3942351a1bdb1de960b739ff4ce277960f2425ad4509446dbace8d9d1"
+            ],
+            "index": "pypi",
+            "version": "==6.0.0"
+        },
         "oauthlib": {
             "hashes": [
                 "sha256:0ce32c5d989a1827e3f1148f98b9085ed2370fc939bf524c9c851d8714797298",
                 "sha256:3e1e14f6cde7e5475128d30e97edc3bfb4dc857cb884d8714ec161fdbb3b358e"
             ],
             "version": "==3.0.1"
+        },
+        "pprint": {
+            "hashes": [
+                "sha256:c0fa22d1462351671ca098e9779bb26a23880011e93eea5f199a150ee7b92a16"
+            ],
+            "index": "pypi",
+            "version": "==0.1"
         },
         "pyasn1": {
             "hashes": [
