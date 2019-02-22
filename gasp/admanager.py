@@ -93,7 +93,7 @@ class AdManager:
 
     def find_multi(self, service_name, method, key, values):
         service = self.client.GetService(service_name, version=API_VERSION)
-        query = ad_manager.StatementBuilder()
+        query = ad_manager.StatementBuilder(limit=None, offset=None)
         query.Where(f"{key} IN (:values)").WithBindVariable("values", values)
         response = getattr(service, method)(query.ToStatement())
         assert "results" in response
@@ -139,7 +139,7 @@ class AdManager:
         assert "results" in response
         return response["results"]
 
-    def find_or_create_orders(self, order_rows):
+    def setup_orders(self, order_rows):
         settings = []
         for row in order_rows:
             advertiser = self.find_advertiser(row["advertiser_name"])
@@ -154,7 +154,7 @@ class AdManager:
         if 0 < len(result["notfound"]):
             service.createOrders(result["notfound"])
 
-    def find_or_create_creatives(self, creative_rows=[], order_rows=[], lineitem_rows=[]):
+    def setup_creatives(self, creative_rows=[], order_rows=[], lineitem_rows=[]):
         order_to_advertiser = {o["name"]: o["advertiser_name"] for o in order_rows}
         lineitem_to_sizes = {l["name"]: l["sizes"] for l in lineitem_rows}
 
@@ -186,21 +186,62 @@ class AdManager:
                 service.createCreatives(result["notfound"])
             sleep(1)
 
-    def find_or_create_lineitems(self, order_rows=[], lineitem_rows=[]):
+    def setup_lineitems(self, order_rows=[], lineitem_rows=[]):
         # Process for each order because uniqueness is in (order.name, lineitem.name) pairs
         for order_row in order_rows:
             order = self.find_order(order_row["name"])
             lineitem_rows_in_order = list(filter(lambda r: r["order_name"] == order_row["name"], lineitem_rows))
-            self.__find_or_create_lineitem_in_order(order, lineitem_rows_in_order)
+            self.__setup_lineitem_in_order(order, lineitem_rows_in_order)
 
-    def __find_or_create_lineitem_in_order(self, order, lineitem_rows):
+    def setup_lineitemassociation(self, order_rows=[], lineitem_rows=[], creative_rows=[]):
+        for order_row in order_rows:
+            logger.info(f'lineitem creative associations in order {order_row["name"]}')
+            order = self.find_order(order_row["name"])
+            lineitems = self.find_multi("LineItemService", "getLineItemsByStatement", "orderId", order["id"])
+
+            creative_rows_in_order = list(filter(lambda r: r["order_name"] == order_row["name"], creative_rows))
+            creatives = self.find_multi(
+                "CreativeService",
+                "getCreativesByStatement",
+                "name",
+                list(map(lambda r: r["name"], creative_rows_in_order)),
+            )
+
+            settings = []
+            for row in creative_rows_in_order:
+                lineitem = next(filter(lambda l: l["name"] == row["lineitem_name"], lineitems))
+                creative = next(filter(lambda c: c["name"] == row["name"], creatives))
+                settings.append({"lineItemId": lineitem["id"], "creativeId": creative["id"]})
+
+            existing = self.find_multi(
+                "LineItemCreativeAssociationService",
+                "getLineItemCreativeAssociationsByStatement",
+                "lineItemId",
+                list(map(lambda l: l["id"], lineitems)),
+            )
+
+            to_creates = list(
+                filter(
+                    lambda s: not any(
+                        (e["lineItemId"] == s["lineItemId"] and e["creativeId"] == s["creativeId"] for e in existing)
+                    ),
+                    settings,
+                )
+            )
+
+            service = self.client.GetService("LineItemCreativeAssociationService", version=API_VERSION)
+            blocks = chunked(to_creates, 20)
+            for i, block in enumerate(blocks):
+                service.createLineItemCreativeAssociations(to_creates)
+
+    def __setup_lineitem_in_order(self, order, lineitem_rows):
         logger.info(f'lineitem settings in order {order["name"]}')
         settings = []
         for row in lineitem_rows:
             config = self.generate_lineitem_config(row)
             settings.append(config)
 
-        blocks = list(chunked(settings, 20))
+        blocks = chunked(settings, 20)
         for i, block in enumerate(blocks):
             logger.info(f"lineitems: checking ({i+1}/{len(blocks)})")
 
