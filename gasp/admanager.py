@@ -71,19 +71,25 @@ class AdManager:
 
     def __init__(self, config):
         admanager_setting = self.setting_yaml_string(config)
+        self.currency_code = config.get("ad_manager.currency_code")
         self.client = ad_manager.AdManagerClient.LoadFromString(admanager_setting)
 
     @memoize
-    def find_one(self, service_name, method, key, value):
+    def find_one(self, service_name, method, *args):
         service = self.client.GetService(service_name, version=API_VERSION)
         query = ad_manager.StatementBuilder()
-        query.Where(f"{key} = :value").WithBindVariable("value", value)
+        if len(args) % 2 != 0:
+            raise Exception("args must be key value pair")
+
+        q = " AND ".join([f"{k} = :{k}" for k, v in chunked(args, 2)])
+        query.Where(q)
+        [query.WithBindVariable(k, v) for k, v in chunked(args, 2)]
         response = getattr(service, method)(query.ToStatement())
         assert "results" in response
         if len(response["results"]) == 1:
             return response["results"][0]
         else:
-            raise ObjectNotFound(f"object not found: {key} == {value}")
+            raise ObjectNotFound(f"object not found: f{pformat(*args)}")
 
     def find_multi(self, service_name, method, key, values):
         service = self.client.GetService(service_name, version=API_VERSION)
@@ -104,6 +110,24 @@ class AdManager:
 
     def find_trafficker(self, name):
         return self.find_one("UserService", "getUsersByStatement", "name", name)
+
+    def find_order(self, name):
+        return self.find_one("OrderService", "getOrdersByStatement", "name", name)
+
+    def find_key(self, key_name):
+        return self.find_one("CustomTargetingService", "getCustomTargetingKeysByStatement", "name", key_name)
+
+    def find_key_value(self, key_name, value_name):
+        key = self.find_key(key_name)
+        value = self.find_one(
+            "CustomTargetingService",
+            "getCustomTargetingValuesByStatement",
+            "customTargetingKeyId",
+            key["id"],
+            "name",
+            value_name,
+        )
+        return key, value
 
     def find_or_create_orders(self, order_rows):
         settings = []
@@ -151,8 +175,66 @@ class AdManager:
                 service.createCreatives(result["notfound"])
             sleep(1)
 
-    def find_or_create_lineitems(self, creative_rows=[], order_rows=[], lineitem_rows=[]):
-        pass
+    def find_or_create_lineitems(self, order_rows=[], lineitem_rows=[]):
+        blocks = list(chunked(lineitem_rows, 20))
+        for i, rows in enumerate(blocks):
+            logger.info(f"lineitems: checking ({i+1}/{len(blocks)})")
+            settings = []
+            for row in rows:
+                config = self.generate_lineitem_config(row)
+                settings.append(config)
+
+            names = list(map(lambda l: l["name"], settings))
+            existing = self.find_multi("LineItemService", "getLineItemsByStatement", "name", names)
+            result = compare_objects("name", settings, existing, key_only=True)
+            self.handle_compare_result("creatives", settings, result)
+            if 0 < len(result["notfound"]):
+                service = self.client.GetService("LineItemService", version=API_VERSION)
+                service.createLineItems(result["notfound"])
+            sleep(1)
+
+    def generate_lineitem_config(self, row):
+        order = self.find_order(row["order_name"])
+        size = dict(zip(["width", "height"], map(int, row["sizes"].split("x"))))
+
+        keyvalues = []
+        kvs = ["targetingKeyValue1", "targetingKeyValue2", "targetingKeyValue3"]
+        for kv in kvs:
+            if row[kv] == "":
+                continue
+            key, value = self.find_key_value(*row[kv].split("="))
+            keyvalues.append([key, value])
+
+        def to_custom_criteria(keyvalue):
+            return {
+                "xsi_type": "CustomCriteria",
+                "keyId": keyvalue[0]["id"],
+                "valueIds": [keyvalue[1]["id"]],
+                "operator": "IS",
+            }
+
+        custom_targeting = {
+            "xsi_type": "CustomCriteriaSet",
+            "logicalOperator": "OR",
+            "children": [to_custom_criteria(kv) for kv in keyvalues],
+        }
+
+        return {
+            "orderId": order["id"],
+            "name": row["name"],
+            "startDateTimeType": "IMMEDIATELY",
+            "unlimitedEndDateTime": True,
+            "creativeRotationType": "EVEN",  # 均等
+            "lineItemType": "PRICE_PRIORITY",  # 価格優先
+            "costPerUnit": {"currencyCode": self.currency_code, "microAmount": int(row["costPerUnit"] * 1_000_000)},
+            "costType": "CPM",
+            "creativePlaceholders": [{"size": size}],
+            "primaryGoal": {"goalType": "NONE"},
+            "targeting": {
+                "inventoryTargeting": {"targetedAdUnits": [row["targetingUnit"]]},
+                "customTargeting": custom_targeting,
+            },
+        }
 
 
 class GaspException(Exception):
