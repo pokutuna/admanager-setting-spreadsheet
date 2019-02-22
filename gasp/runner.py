@@ -12,9 +12,21 @@ def run(config_path):
     admanager = AdManager(config)
     spreadsheet = Spreadsheet(config)
 
-    from pprint import pprint
+    spreadsheet.check_settings()
 
-    pprint([config, admanager, spreadsheet])
+    admanager.setup_lineitems(
+        order_rows=spreadsheet.fetch_rows("order"), lineitem_rows=spreadsheet.fetch_rows("lineitem")
+    )
+    admanager.setup_creatives(
+        creative_rows=spreadsheet.fetch_rows("creative"),
+        order_rows=spreadsheet.fetch_rows("order"),
+        lineitem_rows=spreadsheet.fetch_rows("lineitem"),
+    )
+    admanager.setup_lineitemassociation(
+        order_rows=spreadsheet.fetch_rows("order"),
+        lineitem_rows=spreadsheet.fetch_rows("lineitem"),
+        creative_rows=spreadsheet.fetch_rows("creative"),
+    )
 
 
 if __name__ == "__main__":

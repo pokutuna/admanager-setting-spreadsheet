@@ -241,7 +241,7 @@ class AdManager:
             config = self.generate_lineitem_config(row)
             settings.append(config)
 
-        blocks = chunked(settings, 20)
+        blocks = list(chunked(settings, 20))
         for i, block in enumerate(blocks):
             logger.info(f"lineitems: checking ({i+1}/{len(blocks)})")
 
