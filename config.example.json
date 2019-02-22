@@ -1,4 +1,44 @@
 {
-  "TODO": "WIP",
+  "ad_manager": {
+    "network_code": "12345",
+    "currency_code": "JPY",
+  },
+  "spreadsheet": {
+    "id": "abcdefghijklmnopqrstuvwxyz",
+    "sheets": {
+      "order": {
+        "sheet_name": "Order",
+        "columns": {
+          "name": "Name",
+          "advertiser_name": "Advertiser",
+          "trafficker_name": "User"
+        }
+      },
+      "lineitem": {
+        "sheet_name": "LineItem",
+        "columns": {
+          "order_name": "Order Name",
+          "name": "Name",
+          "sizes": "Size",
+          "costPerUnit": "CPM",
+          "targetingUnit": "AdUnitId",
+          "targetingKeyValue1": "KV1",
+          "targetingKeyValue2": "KV2",
+          "targetingKeyValue3": "KV3",
+          "targetingKeyValue4": "KV4",
+          "targetingKeyValue5": "KV5"
+        }
+      },
+      "creative": {
+        "sheet_name": "Creative",
+        "columns": {
+          "order_name": "Order Name",
+          "lineitem_name": "LineItem Name",
+          "name": "Name",
+          "snippet": "Code"
+        }
+      }
+    }
+  },
   "key": "./key.json"
 }
