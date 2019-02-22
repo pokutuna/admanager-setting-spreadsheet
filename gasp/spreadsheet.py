@@ -83,6 +83,7 @@ class Spreadsheet:
             },
             "required": ["name", "advertiser_name", "trafficker_name"],
         }
+        logger.info(f"checking order settings")
         [validate(o, schema) for o in orders]
 
         # name must be unique
@@ -108,6 +109,7 @@ class Spreadsheet:
             },
             "required": ["order_name", "name", "sizes", "costPerUnit", "targetingUnit"],
         }
+        logger.info(f"checking lineitem settings")
         [validate(l, schema) for l in lineitems]
 
         # name must be unique in order
@@ -127,6 +129,7 @@ class Spreadsheet:
                 "snippet": non_empty_string,
             },
         }
+        logger.info(f"checking creative settings")
         [validate(c, schema) for c in creatives]
 
         # name must be unique
