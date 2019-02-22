@@ -129,6 +129,16 @@ class AdManager:
         )
         return key, value
 
+    def search_lineitems(self, order_id, names):
+        service = self.client.GetService("LineItemService", version=API_VERSION)
+        query = ad_manager.StatementBuilder()
+        query.Where(f"orderId = :order_id AND name IN (:names)").WithBindVariable(
+            "order_id", order_id
+        ).WithBindVariable("names", names)
+        response = service.getLineItemsByStatement(query.ToStatement())
+        assert "results" in response
+        return response["results"]
+
     def find_or_create_orders(self, order_rows):
         settings = []
         for row in order_rows:
@@ -141,7 +151,8 @@ class AdManager:
         result = compare_objects("name", settings, existing)
         self.handle_compare_result("orders", settings, result)
         service = self.client.GetService("OrderService", version=API_VERSION)
-        service.createOrders(result["notfound"])
+        if 0 < len(result["notfound"]):
+            service.createOrders(result["notfound"])
 
     def find_or_create_creatives(self, creative_rows=[], order_rows=[], lineitem_rows=[]):
         order_to_advertiser = {o["name"]: o["advertiser_name"] for o in order_rows}
@@ -176,18 +187,27 @@ class AdManager:
             sleep(1)
 
     def find_or_create_lineitems(self, order_rows=[], lineitem_rows=[]):
-        blocks = list(chunked(lineitem_rows, 20))
-        for i, rows in enumerate(blocks):
+        # Process for each order because uniqueness is in (order.name, lineitem.name) pairs
+        for order_row in order_rows:
+            order = self.find_order(order_row["name"])
+            lineitem_rows_in_order = list(filter(lambda r: r["order_name"] == order_row["name"], lineitem_rows))
+            self.__find_or_create_lineitem_in_order(order, lineitem_rows_in_order)
+
+    def __find_or_create_lineitem_in_order(self, order, lineitem_rows):
+        logger.info(f'lineitem settings in order {order["name"]}')
+        settings = []
+        for row in lineitem_rows:
+            config = self.generate_lineitem_config(row)
+            settings.append(config)
+
+        blocks = list(chunked(settings, 20))
+        for i, block in enumerate(blocks):
             logger.info(f"lineitems: checking ({i+1}/{len(blocks)})")
-            settings = []
-            for row in rows:
-                config = self.generate_lineitem_config(row)
-                settings.append(config)
 
             names = list(map(lambda l: l["name"], settings))
-            existing = self.find_multi("LineItemService", "getLineItemsByStatement", "name", names)
+            existing = self.search_lineitems(order["id"], names)
             result = compare_objects("name", settings, existing, key_only=True)
-            self.handle_compare_result("creatives", settings, result)
+            self.handle_compare_result("lineitem", settings, result)
             if 0 < len(result["notfound"]):
                 service = self.client.GetService("LineItemService", version=API_VERSION)
                 service.createLineItems(result["notfound"])
@@ -197,27 +217,15 @@ class AdManager:
         order = self.find_order(row["order_name"])
         size = dict(zip(["width", "height"], map(int, row["sizes"].split("x"))))
 
-        keyvalues = []
-        kvs = ["targetingKeyValue1", "targetingKeyValue2", "targetingKeyValue3"]
-        for kv in kvs:
-            if row[kv] == "":
-                continue
-            key, value = self.find_key_value(*row[kv].split("="))
-            keyvalues.append([key, value])
-
-        def to_custom_criteria(keyvalue):
-            return {
-                "xsi_type": "CustomCriteria",
-                "keyId": keyvalue[0]["id"],
-                "valueIds": [keyvalue[1]["id"]],
-                "operator": "IS",
-            }
-
-        custom_targeting = {
-            "xsi_type": "CustomCriteriaSet",
-            "logicalOperator": "OR",
-            "children": [to_custom_criteria(kv) for kv in keyvalues],
-        }
+        columns = [
+            "targetingKeyValue1",
+            "targetingKeyValue2",
+            "targetingKeyValue3",
+            "targetingKeyValue4",
+            "targetingKeyValue5",
+        ]
+        criterias = list(map(lambda c: self.keyvalue_to_criteria(row[c]), filter(lambda c: row[c] != "", columns)))
+        custom_targeting = {"xsi_type": "CustomCriteriaSet", "logicalOperator": "OR", "children": criterias}
 
         return {
             "orderId": order["id"],
@@ -235,6 +243,13 @@ class AdManager:
                 "customTargeting": custom_targeting,
             },
         }
+
+    def keyvalue_to_criteria(self, keyvalue):
+        """
+        "hoge=fuga" のような入力からターゲティング設定に利用する criteai dict を返す
+        """
+        key, value = self.find_key_value(*keyvalue.split("="))
+        return {"xsi_type": "CustomCriteria", "keyId": key["id"], "valueIds": [value["id"]], "operator": "IS"}
 
 
 class GaspException(Exception):
