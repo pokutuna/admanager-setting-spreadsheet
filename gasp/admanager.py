@@ -258,13 +258,7 @@ class AdManager:
         order = self.find_order(row["order_name"])
         size = dict(zip(["width", "height"], map(int, row["sizes"].split("x"))))
 
-        columns = [
-            "targetingKeyValue1",
-            "targetingKeyValue2",
-            "targetingKeyValue3",
-            "targetingKeyValue4",
-            "targetingKeyValue5",
-        ]
+        columns = list(map(lambda n: "targetingKeyValue" + str(n), range(1, 12 + 1)))
         criterias = list(map(lambda c: self.keyvalue_to_criteria(row[c]), filter(lambda c: row[c] != "", columns)))
         custom_targeting = {"xsi_type": "CustomCriteriaSet", "logicalOperator": "OR", "children": criterias}
 

@@ -103,9 +103,7 @@ class Spreadsheet:
                 "sizes": {"type": "string", "minLength": 1, "pattern": "^\\d+x\\d+(\\s?,\\s?\\d+x\\d+)*$"},
                 "costPerUnit": positive_integer,
                 "targetingUnit": positive_integer,
-                "targetingKeyValue1": single_keyvalue,
-                "targetingKeyValue2": single_keyvalue,
-                "targetingKeyValue3": single_keyvalue,
+                **dict(map(lambda n: ("targetingKeyValue" + str(n), single_keyvalue), range(1, 12 + 1))),
             },
             "required": ["order_name", "name", "sizes", "costPerUnit", "targetingUnit"],
         }
