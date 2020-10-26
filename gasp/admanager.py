@@ -11,7 +11,7 @@ from more_itertools import chunked
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-API_VERSION = "v201811"
+API_VERSION = "v202008"
 
 
 def memoize(obj):
