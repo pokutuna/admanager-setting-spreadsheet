@@ -132,9 +132,9 @@ class AdManager:
     def search_lineitems(self, order_id, names):
         service = self.client.GetService("LineItemService", version=API_VERSION)
         query = ad_manager.StatementBuilder()
-        query.Where(f"orderId = :order_id AND name IN (:names)").WithBindVariable(
-            "order_id", order_id
-        ).WithBindVariable("names", names)
+        query.Where("orderId = :order_id AND name IN (:names)").WithBindVariable("order_id", order_id).WithBindVariable(
+            "names", names
+        )
         response = service.getLineItemsByStatement(query.ToStatement())
         assert "results" in response
         return response["results"]
@@ -156,7 +156,7 @@ class AdManager:
 
     def setup_creatives(self, creative_rows=[], order_rows=[], lineitem_rows=[]):
         order_to_advertiser = {o["name"]: o["advertiser_name"] for o in order_rows}
-        lineitem_to_sizes = {l["name"]: l["sizes"] for l in lineitem_rows}
+        lineitem_to_sizes = {li["name"]: li["sizes"] for li in lineitem_rows}
 
         blocks = list(chunked(creative_rows, 30))
         for i, rows in enumerate(blocks):
