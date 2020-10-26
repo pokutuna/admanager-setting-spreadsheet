@@ -260,6 +260,7 @@ class AdManager:
 
         columns = list(map(lambda n: "targetingKeyValue" + str(n), range(1, 12 + 1)))
         criterias = list(map(lambda c: self.keyvalue_to_criteria(row[c]), filter(lambda c: row[c] != "", columns)))
+        ad_units = list(map(lambda id: {"adUnitId": id}, row["targetingUnit"].split(",")))
         custom_targeting = {"xsi_type": "CustomCriteriaSet", "logicalOperator": "OR", "children": criterias}
 
         return {
@@ -274,7 +275,7 @@ class AdManager:
             "creativePlaceholders": [{"size": size}],
             "primaryGoal": {"goalType": "NONE"},
             "targeting": {
-                "inventoryTargeting": {"targetedAdUnits": [row["targetingUnit"]]},
+                "inventoryTargeting": {"targetedAdUnits": ad_units},
                 "customTargeting": custom_targeting,
             },
         }
@@ -283,8 +284,14 @@ class AdManager:
         """
         "hoge=fuga" のような入力からターゲティング設定に利用する criteai dict を返す
         """
-        key, value = self.find_key_value(*keyvalue.split("="))
-        return {"xsi_type": "CustomCriteria", "keyId": key["id"], "valueIds": [value["id"]], "operator": "IS"}
+        if "!=" in keyvalue:
+            key, value = self.find_key_value(*keyvalue.split("!="))
+            return {"xsi_type": "CustomCriteria", "keyId": key["id"], "valueIds": [value["id"]], "operator": "IS_NOT"}
+        elif "=" in keyvalue:
+            key, value = self.find_key_value(*keyvalue.split("="))
+            return {"xsi_type": "CustomCriteria", "keyId": key["id"], "valueIds": [value["id"]], "operator": "IS"}
+        else:
+            raise f"Unsupported format: {keyvalue}"
 
 
 class GaspException(Exception):
