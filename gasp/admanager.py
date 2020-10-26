@@ -11,7 +11,7 @@ from more_itertools import chunked
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-API_VERSION = "v201811"
+API_VERSION = "v202008"
 
 
 def memoize(obj):
@@ -132,9 +132,9 @@ class AdManager:
     def search_lineitems(self, order_id, names):
         service = self.client.GetService("LineItemService", version=API_VERSION)
         query = ad_manager.StatementBuilder()
-        query.Where(f"orderId = :order_id AND name IN (:names)").WithBindVariable(
-            "order_id", order_id
-        ).WithBindVariable("names", names)
+        query.Where("orderId = :order_id AND name IN (:names)").WithBindVariable("order_id", order_id).WithBindVariable(
+            "names", names
+        )
         response = service.getLineItemsByStatement(query.ToStatement())
         assert "results" in response
         return response["results"]
@@ -156,7 +156,7 @@ class AdManager:
 
     def setup_creatives(self, creative_rows=[], order_rows=[], lineitem_rows=[]):
         order_to_advertiser = {o["name"]: o["advertiser_name"] for o in order_rows}
-        lineitem_to_sizes = {l["name"]: l["sizes"] for l in lineitem_rows}
+        lineitem_to_sizes = {li["name"]: li["sizes"] for li in lineitem_rows}
 
         blocks = list(chunked(creative_rows, 30))
         for i, rows in enumerate(blocks):
@@ -260,6 +260,7 @@ class AdManager:
 
         columns = list(map(lambda n: "targetingKeyValue" + str(n), range(1, 12 + 1)))
         criterias = list(map(lambda c: self.keyvalue_to_criteria(row[c]), filter(lambda c: row[c] != "", columns)))
+        ad_units = list(map(lambda id: {"adUnitId": id}, row["targetingUnit"].split(",")))
         custom_targeting = {"xsi_type": "CustomCriteriaSet", "logicalOperator": "OR", "children": criterias}
 
         return {
@@ -274,7 +275,7 @@ class AdManager:
             "creativePlaceholders": [{"size": size}],
             "primaryGoal": {"goalType": "NONE"},
             "targeting": {
-                "inventoryTargeting": {"targetedAdUnits": [row["targetingUnit"]]},
+                "inventoryTargeting": {"targetedAdUnits": ad_units},
                 "customTargeting": custom_targeting,
             },
         }
@@ -283,8 +284,14 @@ class AdManager:
         """
         "hoge=fuga" のような入力からターゲティング設定に利用する criteai dict を返す
         """
-        key, value = self.find_key_value(*keyvalue.split("="))
-        return {"xsi_type": "CustomCriteria", "keyId": key["id"], "valueIds": [value["id"]], "operator": "IS"}
+        if "!=" in keyvalue:
+            key, value = self.find_key_value(*keyvalue.split("!="))
+            return {"xsi_type": "CustomCriteria", "keyId": key["id"], "valueIds": [value["id"]], "operator": "IS_NOT"}
+        elif "=" in keyvalue:
+            key, value = self.find_key_value(*keyvalue.split("="))
+            return {"xsi_type": "CustomCriteria", "keyId": key["id"], "valueIds": [value["id"]], "operator": "IS"}
+        else:
+            raise f"Unsupported format: {keyvalue}"
 
 
 class GaspException(Exception):

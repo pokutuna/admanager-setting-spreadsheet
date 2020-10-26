@@ -9,7 +9,6 @@ logger.addHandler(logging.NullHandler())
 
 # jsonschema parts
 non_empty_string = {"type": "string", "minLength": 1}
-positive_integer = {"type": "integer", "minimum": 1}
 
 
 class Spreadsheet:
@@ -63,7 +62,7 @@ class Spreadsheet:
         return self.cache[sheet_type]
 
     def check_settings(self):
-        logger.info(f"check settings in the spreadsheet")
+        logger.info("check settings in the spreadsheet")
 
         orders = self.fetch_rows("order")
         self.check_orders(orders)
@@ -83,7 +82,7 @@ class Spreadsheet:
             },
             "required": ["name", "advertiser_name", "trafficker_name"],
         }
-        logger.info(f"checking order settings")
+        logger.info("checking order settings")
         [validate(o, schema) for o in orders]
 
         # name must be unique
@@ -101,14 +100,14 @@ class Spreadsheet:
                 "order_name": {"type": "string", "enum": order_names},
                 "name": non_empty_string,
                 "sizes": {"type": "string", "minLength": 1, "pattern": "^\\d+x\\d+(\\s?,\\s?\\d+x\\d+)*$"},
-                "costPerUnit": positive_integer,
-                "targetingUnit": positive_integer,
+                "costPerUnit": {"type": "integer", "minimum": 1},
+                "targetingUnit": {"type": "string", "minLength": 1, "pattern": "^(\\d+)(,\\d+)*$"},
                 **dict(map(lambda n: ("targetingKeyValue" + str(n), single_keyvalue), range(1, 12 + 1))),
             },
             "required": ["order_name", "name", "sizes", "costPerUnit", "targetingUnit"],
         }
-        logger.info(f"checking lineitem settings")
-        [validate(l, schema) for l in lineitems]
+        logger.info("checking lineitem settings")
+        [validate(li, schema) for li in lineitems]
 
         # name must be unique in order
         names = list(map(lambda li: li["name"] + li["order_name"], lineitems))
@@ -127,7 +126,7 @@ class Spreadsheet:
                 "snippet": non_empty_string,
             },
         }
-        logger.info(f"checking creative settings")
+        logger.info("checking creative settings")
         [validate(c, schema) for c in creatives]
 
         # name must be unique
